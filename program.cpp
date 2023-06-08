@@ -23,6 +23,7 @@
 
 #include <limits.h>
 #include "program.h"
+#include "defines.h"
 
 #if !defined(SECS_PER_DAY)
 #define SECS_PER_MIN  (60UL)
@@ -81,8 +82,9 @@ void ProgramData::dequeue(byte qid) {
 }
 
 /** Load program count from program file */
-void ProgramData::load_count() {
+byte ProgramData::load_count() {
 	nprograms = file_read_byte(PROG_FILENAME, 0);
+	return nprograms;
 }
 
 /** Save program count to program file */

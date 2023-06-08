@@ -37,10 +37,12 @@
 	#include <SPI.h>
 	#include "I2CRTC.h"
 
-	#if defined(ESP8266) // for ESP8266
+	#if defined(ESP8266) || defined(ESP32) // for ESP8266
 		#include <FS.h>
+		#if defined(ESP8266)
 		#include <LittleFS.h>
 		#include <ENC28J60lwIP.h>
+		#endif
 		#include <RCSwitch.h>
 		#include <OpenThingsFramework.h>
 		#include <DNSServer.h>
@@ -52,6 +54,9 @@
 		#include <Ethernet.h>
 		#include "LiquidCrystal.h"
 	#endif
+	#if defined(ESP32)
+    	#include <SPIFFS.h>
+  	#endif
 
 #else // headers for RPI/BBB/LINUX
 	#include <time.h>
@@ -63,8 +68,12 @@
 #endif // end of headers
 
 #if defined(ARDUINO)
+	#if defined(ESP8266) || defined(ESP32)
 	#if defined(ESP8266)
 	extern ESP8266WebServer *update_server;
+	#elif defined(ESP32)
+  	extern WebServer *update_server;
+	#endif
 	extern OTF::OpenThingsFramework *otf;
 	extern ENC28J60lwIP eth;
 	#else
@@ -167,7 +176,7 @@ class OpenSprinkler {
 public:
 
 	// data members
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 	static SSD1306Display lcd;  // 128x64 OLED display
 #elif defined(ARDUINO)
 	static LiquidCrystal lcd;   // 16x2 character LCD
@@ -296,7 +305,7 @@ public:
 	static int8_t send_http_request(char* server_with_port, char* p, void(*callback)(char*)=NULL, uint16_t timeout=5000);
 	// -- LCD functions
 #if defined(ARDUINO) // LCD functions for Arduino
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
 	static void lcd_print_pgm(PGM_P str); // ESP8266 does not allow PGM_P followed by PROGMEM
 	static void lcd_print_line_clear_pgm(PGM_P str, byte line);
 	#else
@@ -335,7 +344,7 @@ public:
 	static void lcd_set_brightness(byte value=1);
 	static void lcd_set_contrast();
 
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
 	static OTCConfig otc;
 	static IOEXP *mainio, *drio;
 	static IOEXP *expanders[];
@@ -360,7 +369,7 @@ private:
 	static void lcd_start();
 	static byte button_read_busy(byte pin_butt, byte waitmode, byte butt, byte is_holding);
 
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
 	static void parse_otc_config();
 	static void latch_boost();
 	static void latch_open(byte sid);

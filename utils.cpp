@@ -27,9 +27,11 @@ extern OpenSprinkler os;
 
 #if defined(ARDUINO)  // Arduino
 
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
 		#include <FS.h>
+		#if defined(ESP8266)
 		#include <LittleFS.h>
+		#endif
 	#else
 		#include <avr/eeprom.h>
 		#include "SdFat.h"
@@ -177,6 +179,11 @@ void remove_file(const char *fn) {
 	if(!LittleFS.exists(fn)) return;
 	LittleFS.remove(fn);
 
+#elif defined(ESP32)
+
+	if(!SPIFFS.exists(fn)) return;
+	SPIFFS.remove(fn);
+
 #elif defined(ARDUINO)
 
 	sd.chdir("/");
@@ -195,6 +202,10 @@ bool file_exists(const char *fn) {
 
 	return LittleFS.exists(fn);
 
+#elif defined(ESP32)
+
+	return SPIFFS.exists(fn);
+
 #elif defined(ARDUINO)
 
 	sd.chdir("/");
@@ -212,10 +223,14 @@ bool file_exists(const char *fn) {
 
 // file functions
 void file_read_block(const char *fn, void *dst, ulong pos, ulong len) {
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 
 	// do not use File.readBytes or readBytesUntil because it's very slow
+	#if defined(ESP8266)
 	File f = LittleFS.open(fn, "r");
+	#elif defined(ESP32)
+	File f = SPIFFS.open(fn, "r");
+	#endif
 	if(f) {
 		f.seek(pos, SeekSet);
 		f.read((byte*)dst, len);
@@ -245,10 +260,15 @@ void file_read_block(const char *fn, void *dst, ulong pos, ulong len) {
 }
 
 void file_write_block(const char *fn, const void *src, ulong pos, ulong len) {
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 
+	#if defined(ESP8266)
 	File f = LittleFS.open(fn, "r+");
 	if(!f) f = LittleFS.open(fn, "w");
+	#elif defined(ESP32)
+	File f = SPIFFS.open(fn, "r+");
+	if(!f) f = SPIFFS.open(fn, "w");
+	#endif
 	if(f) {
 		f.seek(pos, SeekSet);
 		f.write((byte*)src, len);
@@ -285,9 +305,13 @@ void file_copy_block(const char *fn, ulong from, ulong to, ulong len, void *tmp)
 	// assume tmp buffer is provided and is larger than len
 	// todo future: if tmp buffer is not provided, do byte-to-byte copy
 	if(tmp==NULL) { return; }
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 
+	#if defined(ESP8266)
 	File f = LittleFS.open(fn, "r+");
+	#elif defined(ESP32)
+	File f = SPIFFS.open(fn, "r+");
+	#endif
 	if(!f) return;
 	f.seek(from, SeekSet);
 	f.read((byte*)tmp, len);
@@ -323,9 +347,13 @@ void file_copy_block(const char *fn, ulong from, ulong to, ulong len, void *tmp)
 
 // compare a block of content
 byte file_cmp_block(const char *fn, const char *buf, ulong pos) {
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 
+	#if defined(ESP8266)
 	File f = LittleFS.open(fn, "r");
+	#elif defined(ESP32)
+	File f = SPIFFS.open(fn, "r");
+	#endif
 	if(f) {
 		f.seek(pos, SeekSet);
 		char c = f.read();

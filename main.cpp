@@ -30,8 +30,12 @@
 #include "mqtt.h"
 
 #if defined(ARDUINO)
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
+		#if defined(ESP8266)
 		ESP8266WebServer *update_server = NULL;
+		#elif defined(ESP32)
+      	WebServer *update_server = NULL;
+    	#endif
 		OTF::OpenThingsFramework *otf = NULL;
 		DNSServer *dns = NULL;
 		ENC28J60lwIP eth(PIN_ETHER_CS); // ENC28J60 lwip for wired Ether
@@ -88,7 +92,7 @@ float flow_last_gpm=0;
 uint32_t reboot_timer = 0;
 
 void flow_poll() {
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
 	if(os.hw_rev == 2) pinModeExt(PIN_SENSOR1, INPUT_PULLUP); // this seems necessary for OS 3.2
 	#endif
 	byte curr_flow_state = digitalReadExt(PIN_SENSOR1);
@@ -143,7 +147,7 @@ void ui_state_machine() {
 	if(millis() - last_usm <= UI_STATE_MACHINE_INTERVAL) { return; }
 	last_usm = millis();
 
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 	// process screen led
 	static ulong led_toggle_timeout = 0;
 	if(led_blink_ms) {
@@ -180,7 +184,7 @@ void ui_state_machine() {
 				} else if (digitalReadExt(PIN_BUTTON_2)==0) { // if B2 is pressed while holding B1, display gateway IP
 					os.lcd.clear(0, 1);
 					os.lcd.setCursor(0, 0);
-					#if defined(ESP8266)
+					#if defined(ESP8266) || defined(ESP32)
 					if (useEth) { os.lcd.print(eth.gatewayIP()); }
 					else { os.lcd.print(WiFi.gatewayIP()); }
 					#else
@@ -196,7 +200,7 @@ void ui_state_machine() {
 			} else {  // clicking B1: display device IP and port
 				os.lcd.clear(0, 1);
 				os.lcd.setCursor(0, 0);
-				#if defined(ESP8266)
+				#if defined(ESP8266) || defined(ESP32)
 				if (useEth) { os.lcd.print(eth.localIP()); }
 				else { os.lcd.print(WiFi.localIP()); }
 				#else
@@ -244,7 +248,7 @@ void ui_state_machine() {
 					os.lcd.print(os.last_reboot_cause);
 					ui_state = UI_STATE_DISP_IP;
 				} else if(digitalReadExt(PIN_BUTTON_2)==0) {  // if B2 is pressed while holding B3, reset to AP and reboot
-					#if defined(ESP8266)
+					#if defined(ESP8266) || defined(ESP32)
 					if(!ui_confirm(PSTR("Reset to AP?"))) {ui_state = UI_STATE_DEFAULT; break;}
 					os.reset_to_ap();
 					#endif
@@ -293,8 +297,20 @@ void ui_state_machine() {
 // Setup Function
 // ======================
 void do_setup() {
+#if defined(ESP32)
+/* Seting internal station pins to prevent unstable behavior on startup */
+  int i;
+  unsigned int pin_list[] = ON_BOARD_GPIN_LIST;
+  for( i=0; i<8; i++ ){
+    if(pin_list[i] !=255){
+      pinMode(pin_list[i], OUTPUT);
+      digitalWrite(pin_list[i], ~STATION_LOGIC);
+    }
+  }
+
+#endif
 	/* Clear WDT reset flag. */
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 	WiFi.persistent(false);
 	led_blink_ms = LED_FAST_BLINK;
 #else
@@ -314,7 +330,7 @@ void do_setup() {
 	os.lcd_print_time(os.now_tz());  // display time to LCD
 	os.powerup_lasttime = os.now_tz();
 
-#if !defined(ESP8266)
+#if !defined(ESP8266) && !defined(ESP32)
 	// enable WDT
 	/* In order to change WDE or the prescaler, we need to
 	 * set WDCE (This will allow updates for 4 clock cycles).
@@ -351,7 +367,7 @@ void do_setup() {
 // Arduino software reset function
 void(* sysReset) (void) = 0;
 
-#if !defined(ESP8266)
+#if !defined(ESP8266) && !defined(ESP32)
 volatile byte wdt_timeout = 0;
 /** WDT interrupt service routine */
 ISR(WDT_vect)
@@ -406,7 +422,7 @@ bool process_special_program_command(const char*, uint32_t curr_time);
 void perform_ntp_sync();
 void delete_log(char *name);
 
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 bool delete_log_oldest();
 void start_server_ap();
 void start_server_client();
@@ -447,7 +463,7 @@ void do_loop()
 
 	// ====== Process Ethernet packets ======
 #if defined(ARDUINO)	// Process Ethernet packets for Arduino
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
 	static ulong connecting_timeout;
 	switch(os.state) {
 	case OS_STATE_INITIAL:
@@ -458,6 +474,10 @@ void do_loop()
 			os.save_wifi_ip();
 			start_server_client();
 			os.state = OS_STATE_CONNECTED;
+#if defined(ESP32)
+			if(MDNS.begin(MDNS_NAME))
+				DEBUG_PRINTLN("mDNS responder started");
+#endif
 			connecting_timeout = 0;
 		} else if(os.get_wifi_mode()==WIFI_MODE_AP) {
 			start_server_ap();
@@ -614,7 +634,7 @@ void do_loop()
 	// The main control loop runs once every second
 	if (curr_time != last_time) {
 
-		#if defined(ESP8266)
+		#if defined(ESP8266) || defined(ESP32)
 		if(os.hw_rev==2) {
 			pinModeExt(PIN_SENSOR1, INPUT_PULLUP); // this seems necessary for OS 3.2
 			pinModeExt(PIN_SENSOR2, INPUT_PULLUP);
@@ -1019,7 +1039,7 @@ void check_weather() {
 	if (os.status.network_fails>0 || os.iopts[IOPT_REMOTE_EXT_MODE]) return;
 	if (os.status.program_busy) return;
 
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 	if (!useEth) { // todo: what about useEth==true?
 		if (os.get_wifi_mode()!=WIFI_MODE_STA || WiFi.status()!=WL_CONNECTED || os.state!=OS_STATE_CONNECTED) return;
 	}
@@ -1517,7 +1537,7 @@ void push_message(int type, uint32_t lval, float fval, const char* sval) {
 			if (ifttt_enabled) {
 				#if defined(ARDUINO)
 					strcat_P(postval, PSTR("rebooted. Device IP: "));
-					#if defined(ESP8266)
+					#if defined(ESP8266) || defined(ESP32)
 					{
 						IPAddress _ip;
 						if (useEth) {
@@ -1564,7 +1584,11 @@ void push_message(int type, uint32_t lval, float fval, const char* sval) {
 // ====== LOGGING FUNCTIONS =======
 // ================================
 #if defined(ARDUINO)
-char LOG_PREFIX[] = "/logs/";
+	#if defined(ESP32)
+	char LOG_PREFIX[] = "/logs";
+	#else
+	char LOG_PREFIX[] = "/logs/";
+	#endif
 #else
 char LOG_PREFIX[] = "./logs/";
 #endif
@@ -1574,12 +1598,15 @@ char LOG_PREFIX[] = "./logs/";
  */
 void make_logfile_name(char *name) {
 #if defined(ARDUINO)
-	#if !defined(ESP8266)
+	#if !defined(ESP8266) && !defined(ESP32)
 	sd.chdir("/");
 	#endif
 #endif
 	strcpy(tmp_buffer+TMP_BUFFER_SIZE-10, name); // hack: we do this because name is from tmp_buffer too
 	strcpy(tmp_buffer, LOG_PREFIX);
+	#if defined(ESP32)
+	strcat_P(tmp_buffer, PSTR("/"));
+	#endif 
 	strcat(tmp_buffer, tmp_buffer+TMP_BUFFER_SIZE-10);
 	strcat_P(tmp_buffer, PSTR(".txt"));
 }
@@ -1625,6 +1652,19 @@ void write_log(byte type, ulong curr_time) {
 		if(!file) return;
 	}
 	file.seek(0, SeekEnd);
+
+	#elif defined(ESP32)
+
+	File file;
+
+	if( SPIFFS.exists(tmp_buffer) )
+		file = SPIFFS.open(tmp_buffer, "r+"); 
+	else 
+		file = SPIFFS.open(tmp_buffer, "w");
+
+	if(!file) return;
+	file.seek(0, SeekEnd);
+
 	#else
 	sd.chdir("/");
 	if (sd.chdir(LOG_PREFIX) == false) {
@@ -1710,7 +1750,7 @@ void write_log(byte type, ulong curr_time) {
 	strcat_P(tmp_buffer, PSTR("]\r\n"));
 
 #if defined(ARDUINO)
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
 	file.write((const uint8_t*)tmp_buffer, strlen(tmp_buffer));
 	#else
 	file.write(tmp_buffer);
@@ -1722,11 +1762,12 @@ void write_log(byte type, ulong curr_time) {
 #endif
 }
 
-#if defined(ESP8266)
+#if defined(ESP8266) || defined(ESP32)
 bool delete_log_oldest() {
-	Dir dir = LittleFS.openDir(LOG_PREFIX);
 	time_t oldest_t = ULONG_MAX;
 	String oldest_fn;
+	#if defined(ESP8266)
+	Dir dir = LittleFS.openDir(LOG_PREFIX);
 	while (dir.next()) {
 		time_t t = dir.fileCreationTime();
 		if(t<oldest_t) {
@@ -1734,10 +1775,26 @@ bool delete_log_oldest() {
 			oldest_fn = dir.fileName();
 		}
 	}
+	#elif defined(ESP32)
+	File root = SPIFFS.open(LOG_PREFIX);
+	File file = root.openNextFile();   
+	while(file){
+		time_t t = file.getCreationTime();
+		if(t<oldest_t) {
+			oldest_t = t;
+			oldest_fn = file.name();
+		}
+		file = root.openNextFile();
+	}
+	#endif
 	if(oldest_fn.length()>0) {
 		DEBUG_PRINT(F("deleting "))
 		DEBUG_PRINTLN(LOG_PREFIX+oldest_fn);
+		#if defined(ESP8266)
 		LittleFS.remove(LOG_PREFIX+oldest_fn);
+		#elif defined(ESP32)
+		SPIFFS.remove(LOG_PREFIX+oldest_fn);
+		#endif
 		return true;
 	} else {
 		return false;
@@ -1752,13 +1809,22 @@ void delete_log(char *name) {
 	if (!os.iopts[IOPT_ENABLE_LOGGING]) return;
 #if defined(ARDUINO)
 
-	#if defined(ESP8266)
+	#if defined(ESP8266) || defined(ESP32)
 	if (strncmp(name, "all", 3) == 0) {
 		// delete all log files
+		#if defined(ESP8266)
 		Dir dir = LittleFS.openDir(LOG_PREFIX);
 		while (dir.next()) {
 			LittleFS.remove(LOG_PREFIX+dir.fileName());
 		}
+		#elif defined(ESP32)
+		File root = SPIFFS.open(LOG_PREFIX);
+		File file = root.openNextFile();   
+		while(file){
+			SPIFFS.remove(file.name());
+			file = root.openNextFile();
+		}
+		#endif
 	} else {
 		// delete a single log file
 		make_logfile_name(name);

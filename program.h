@@ -151,8 +151,8 @@ public:
 	static byte del(byte pid);
 	static void drem_to_relative(byte days[2]); // absolute to relative reminder conversion
 	static void drem_to_absolute(byte days[2]);
+	static byte load_count();
 private:
-	static void load_count();
 	static void save_count();
 };
 
