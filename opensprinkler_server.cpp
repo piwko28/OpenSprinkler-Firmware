@@ -1916,14 +1916,17 @@ void server_json_debug(OTF_PARAMS_DEF) {
 	bfill.emit_p(PSTR("{\"date\":\"$S\",\"time\":\"$S\",\"heap\":$D"), __DATE__, __TIME__,
 #if defined(ESP8266) || defined(ESP32)
 	(uint16_t)ESP.getFreeHeap());
-	FSInfo fs_info;
 	#if defined(ESP8266)
+	FSInfo fs_info;
 	LittleFS.info(fs_info);
+	size_t totalBytes = fs_info.totalBytes;
+	size_t usedBytes = fs_info.usedBytes;
 	#elif defined(ESP32)
-	SPIFFS.info(fs_info);
+	size_t totalBytes = SPIFFS.totalBytes();
+	size_t usedBytes = SPIFFS.usedBytes();
 	#endif
 	bfill.emit_p(PSTR(",\"flash\":$D,\"used\":$D,\"rssi\":$D,\"bssid\":\"$S\",\"bssidchl\":\"$O\"}"),
-		fs_info.totalBytes, fs_info.usedBytes, WiFi.RSSI(), WiFi.BSSIDstr().c_str(), SOPT_STA_BSSID_CHL);
+		totalBytes, usedBytes, WiFi.RSSI(), WiFi.BSSIDstr().c_str(), SOPT_STA_BSSID_CHL);
 
 /*
 // print out all log files and all files in the main folder with file sizes

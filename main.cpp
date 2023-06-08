@@ -197,7 +197,7 @@ void ui_state_machine() {
 				os.lcd.clear(0, 1);
 				os.lcd.setCursor(0, 0);
 				#if defined(ESP8266) || defined(ESP32)
-				else { os.lcd.print(WiFi.localIP()); }
+				os.lcd.print(WiFi.localIP());
 				#else
 				{ os.lcd.print(Ethernet.localIP()); }
 				#endif
@@ -426,7 +426,7 @@ void reboot_in(uint32_t ms) {
 	if(os.state != OS_STATE_WAIT_REBOOT) {
 		os.state = OS_STATE_WAIT_REBOOT;
 		DEBUG_PRINTLN(F("Prepare to restart..."));
-		reboot_ticker.once_ms(ms, ESP.restart);
+		reboot_ticker.once_ms(ms, esp_restart);
 	}
 }
 #else
@@ -1755,7 +1755,7 @@ bool delete_log_oldest() {
 	File root = SPIFFS.open(LOG_PREFIX);
 	File file = root.openNextFile();   
 	while(file){
-		time_t t = file.getCreationTime();
+		time_t t = file.getLastWrite();
 		if(t<oldest_t) {
 			oldest_t = t;
 			oldest_fn = file.name();
@@ -1804,8 +1804,13 @@ void delete_log(char *name) {
 	} else {
 		// delete a single log file
 		make_logfile_name(name);
+		#if defined(ESP8266)
 		if(!LittleFS.exists(tmp_buffer)) return;
 		LittleFS.remove(tmp_buffer);
+		#elif defined(ESP32)
+		if(!SPIFFS.exists(tmp_buffer)) return;
+		SPIFFS.remove(tmp_buffer);
+		#endif
 	}
 	#else
 	if (strncmp(name, "all", 3) == 0) {
