@@ -38,14 +38,11 @@
     	#endif
 		OTF::OpenThingsFramework *otf = NULL;
 		DNSServer *dns = NULL;
-		ENC28J60lwIP eth(PIN_ETHER_CS); // ENC28J60 lwip for wired Ether
-		bool useEth = false; // tracks whether we are using WiFi or wired Ether connection
 		static uint16_t led_blink_ms = LED_FAST_BLINK;
 	#else
 		EthernetServer *m_server = NULL;
 		EthernetClient *m_client = NULL;
 		SdFat sd;	// SD card object
-		bool useEth = true;
 	#endif
 	unsigned long getNtpTime();
 #else // header and defs for RPI/BBB
@@ -185,8 +182,7 @@ void ui_state_machine() {
 					os.lcd.clear(0, 1);
 					os.lcd.setCursor(0, 0);
 					#if defined(ESP8266) || defined(ESP32)
-					if (useEth) { os.lcd.print(eth.gatewayIP()); }
-					else { os.lcd.print(WiFi.gatewayIP()); }
+					os.lcd.print(WiFi.gatewayIP());
 					#else
 					{ os.lcd.print(Ethernet.gatewayIP()); }
 					#endif
@@ -201,7 +197,6 @@ void ui_state_machine() {
 				os.lcd.clear(0, 1);
 				os.lcd.setCursor(0, 0);
 				#if defined(ESP8266) || defined(ESP32)
-				if (useEth) { os.lcd.print(eth.localIP()); }
 				else { os.lcd.print(WiFi.localIP()); }
 				#else
 				{ os.lcd.print(Ethernet.localIP()); }
@@ -234,7 +229,7 @@ void ui_state_machine() {
 			} else {  // clicking B2: display MAC
 				os.lcd.clear(0, 1);
 				byte mac[6];
-				os.load_hardware_mac(mac, useEth);
+				os.load_hardware_mac(mac);
 				os.lcd_print_mac(mac);
 				ui_state = UI_STATE_DISP_GW;
 			}
@@ -467,19 +462,7 @@ void do_loop()
 	static ulong connecting_timeout;
 	switch(os.state) {
 	case OS_STATE_INITIAL:
-		if(useEth) {
-			led_blink_ms = 0;
-			os.set_screen_led(LOW);
-			os.lcd.clear();
-			os.save_wifi_ip();
-			start_server_client();
-			os.state = OS_STATE_CONNECTED;
-#if defined(ESP32)
-			if(MDNS.begin(MDNS_NAME))
-				DEBUG_PRINTLN("mDNS responder started");
-#endif
-			connecting_timeout = 0;
-		} else if(os.get_wifi_mode()==WIFI_MODE_AP) {
+		if(os.get_wifi_mode()==WIFI_MODE_AP) {
 			start_server_ap();
 			dns->setErrorReplyCode(DNSReplyCode::NoError);
 			dns->start(53, "*", WiFi.softAPIP());
@@ -553,7 +536,7 @@ void do_loop()
 				//os.reboot_dev(REBOOT_CAUSE_WIFIDONE);
 			}
 		} else {
-			if(useEth || WiFi.status() == WL_CONNECTED) {
+			if(WiFi.status() == WL_CONNECTED) {
 				update_server->handleClient();
 				otf->loop();
 				connecting_timeout = 0;
@@ -1040,9 +1023,7 @@ void check_weather() {
 	if (os.status.program_busy) return;
 
 #if defined(ESP8266) || defined(ESP32)
-	if (!useEth) { // todo: what about useEth==true?
-		if (os.get_wifi_mode()!=WIFI_MODE_STA || WiFi.status()!=WL_CONNECTED || os.state!=OS_STATE_CONNECTED) return;
-	}
+	if (os.get_wifi_mode()!=WIFI_MODE_STA || WiFi.status()!=WL_CONNECTED || os.state!=OS_STATE_CONNECTED) return;
 #endif
 
 	ulong ntz = os.now_tz();
@@ -1540,12 +1521,7 @@ void push_message(int type, uint32_t lval, float fval, const char* sval) {
 					#if defined(ESP8266) || defined(ESP32)
 					{
 						IPAddress _ip;
-						if (useEth) {
-							//_ip = Ethernet.localIP();
-							_ip = eth.localIP();
-						} else {
-							_ip = WiFi.localIP();
-						}
+						_ip = WiFi.localIP();
 						byte ip[4] = {_ip[0], _ip[1], _ip[2], _ip[3]};
 						ip2string(postval, ip);
 					}

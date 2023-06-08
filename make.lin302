@@ -6,7 +6,6 @@ LIBS = . \
   $(ESP_LIBS)/ESP8266WebServer \
   $(ESP_LIBS)/ESP8266mDNS \
   $(ESP_LIBS)/LittleFS \
-  $(ESP_LIBS)/lwIP_enc28j60 \
   $(ESP_LIBS)/Ticker \
   $(ESP_LIBS)/DNSServer \
   $(HOME)/Arduino/libraries/SSD1306 \

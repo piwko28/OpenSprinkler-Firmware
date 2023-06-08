@@ -41,7 +41,6 @@
 		#include <FS.h>
 		#if defined(ESP8266)
 		#include <LittleFS.h>
-		#include <ENC28J60lwIP.h>
 		#endif
 		#include <RCSwitch.h>
 		#include <OpenThingsFramework.h>
@@ -75,11 +74,9 @@
   	extern WebServer *update_server;
 	#endif
 	extern OTF::OpenThingsFramework *otf;
-	extern ENC28J60lwIP eth;
 	#else
 	extern EthernetServer *m_server;
 	#endif
-	extern bool useEth;
 #else
 	extern EthernetServer *m_server;
 #endif
@@ -236,7 +233,6 @@ public:
 	static void reboot_dev(uint8_t);  // reboot the microcontroller
 	static void begin();  // initialization, must call this function before calling other functions
 	static byte start_network();  // initialize network with the given mac and port
-	static byte start_ether();  // initialize ethernet with the given mac and port
 	static bool network_connected();  // check if the network is up
 	static bool load_hardware_mac(byte* buffer, bool wired=false);  // read hardware mac address
 	static time_t now_tz();
@@ -353,7 +349,7 @@ public:
 	static void flash_screen();
 	static void toggle_screen_led();
 	static void set_screen_led(byte status);
-	static byte get_wifi_mode() { if (useEth) return WIFI_MODE_STA; else return wifi_testmode ? WIFI_MODE_STA : iopts[IOPT_WIFI_MODE];}
+	static byte get_wifi_mode() { return wifi_testmode ? WIFI_MODE_STA : iopts[IOPT_WIFI_MODE];}
 	static byte wifi_testmode;
 	static String wifi_ssid, wifi_pass;
 	static byte wifi_bssid[6], wifi_channel;

@@ -475,13 +475,7 @@ byte OpenSprinkler::start_network() {
 
 #if defined(ESP8266) || defined(ESP32)
 
-	if (start_ether()) {
-		useEth = true;
-	} else {
-		useEth = false;
-	}
-
-	if((useEth || get_wifi_mode()==WIFI_MODE_STA) && otc.en>0 && otc.token.length()>=32) {
+	if((get_wifi_mode()==WIFI_MODE_STA) && otc.en>0 && otc.token.length()>=32) {
 		otf = new OTF::OpenThingsFramework(httpport, otc.server, otc.port, otc.token, false, ether_buffer, ETHER_BUFFER_SIZE);
 		DEBUG_PRINTLN(F("Started OTF with remote connection"));
 	} else {
@@ -499,97 +493,12 @@ byte OpenSprinkler::start_network() {
 	DEBUG_PRINT(F("Started update server"));
 	return 1;
 
-#else
-
-	if (start_ether()) {
-		if(m_server)	{ delete m_server; m_server = NULL; }
-		m_server = new EthernetServer(httpport);
-		m_server->begin();
-		useEth = true;
-		return 1;
-	}	else {
-		useEth = false;
-		return 0;
-	}
-
-#endif
-}
-
-byte OpenSprinkler::start_ether() {
-#if defined(ESP8266) || defined(ESP32)
-	if(hw_rev<2) return 0;  // ethernet capability is only available after hw_rev 2
-
-	SPI.begin();
-	SPI.setBitOrder(MSBFIRST);
-	SPI.setDataMode(SPI_MODE0);
-	SPI.setFrequency(4000000);
-
-	load_hardware_mac((uint8_t*)tmp_buffer, true);
-	if (iopts[IOPT_USE_DHCP]==0) { // config static IP before calling eth.begin
-		IPAddress staticip(iopts+IOPT_STATIC_IP1);
-		IPAddress gateway(iopts+IOPT_GATEWAY_IP1);
-		IPAddress dns(iopts+IOPT_DNS_IP1);
-		IPAddress subn(iopts+IOPT_SUBNET_MASK1);
-		eth.config(staticip, gateway, subn, dns);
-	}
-	eth.setDefault();
-	if(!eth.begin((uint8_t*)tmp_buffer))	return 0;
-	lcd_print_line_clear_pgm(PSTR("Start wired link"), 1);
-
-	ulong timeout = millis()+30000; // 30 seconds time out
-	while (!eth.connected()) {
-		DEBUG_PRINT(".");
-		delay(1000);
-		if(millis()>timeout) return 0;
-	}
-
-	DEBUG_PRINTLN();
-	DEBUG_PRINT("eth.ip:");
-	DEBUG_PRINTLN(eth.localIP());
-	DEBUG_PRINT("eth.dns:");
-	DEBUG_PRINTLN(WiFi.dnsIP());
-
-	if (iopts[IOPT_USE_DHCP]) {
-		memcpy(iopts+IOPT_STATIC_IP1, &(eth.localIP()[0]), 4);
-		memcpy(iopts+IOPT_GATEWAY_IP1, &(eth.gatewayIP()[0]),4);
-		memcpy(iopts+IOPT_DNS_IP1, &(WiFi.dnsIP()[0]), 4); // todo: lwip need dns ip
-		memcpy(iopts+IOPT_SUBNET_MASK1, &(eth.subnetMask()[0]), 4);
-		iopts_save();
-	}
-
-	return 1;
-
-#else
-	Ethernet.init(PIN_ETHER_CS);  // make sure to call this before any Ethernet calls
-	if(Ethernet.hardwareStatus()==EthernetNoHardware) return 0;
-	load_hardware_mac((uint8_t*)tmp_buffer, true);
-
-	lcd_print_line_clear_pgm(PSTR("Start wired link"), 1);
-
-	if (iopts[IOPT_USE_DHCP]) {
-		if(!Ethernet.begin((uint8_t*)tmp_buffer))	return 0;
-		memcpy(iopts+IOPT_STATIC_IP1, &(Ethernet.localIP()[0]), 4);
-		memcpy(iopts+IOPT_GATEWAY_IP1, &(Ethernet.gatewayIP()[0]),4);
-		memcpy(iopts+IOPT_DNS_IP1, &(Ethernet.dnsServerIP()[0]), 4);
-		memcpy(iopts+IOPT_SUBNET_MASK1, &(Ethernet.subnetMask()[0]), 4);
-		iopts_save();
-	} else {
-		IPAddress staticip(iopts+IOPT_STATIC_IP1);
-		IPAddress gateway(iopts+IOPT_GATEWAY_IP1);
-		IPAddress dns(iopts+IOPT_DNS_IP1);
-		IPAddress subn(iopts+IOPT_SUBNET_MASK1);
-		Ethernet.begin((uint8_t*)tmp_buffer, staticip, dns, gateway, subn);
-	}
-
-	return 1;
 #endif
 }
 
 bool OpenSprinkler::network_connected(void) {
 #if defined (ESP8266) || defined(ESP32)
-	if(useEth) return true; // todo: lwip currently does not have a way to check link status
-	else
-		return (get_wifi_mode()==WIFI_MODE_STA && WiFi.status()==WL_CONNECTED && state==OS_STATE_CONNECTED);
+	return (get_wifi_mode()==WIFI_MODE_STA && WiFi.status()==WL_CONNECTED && state==OS_STATE_CONNECTED);
 #else
 	return (Ethernet.linkStatus()==LinkON);
 #endif
@@ -2480,11 +2389,7 @@ void OpenSprinkler::lcd_print_mac(const byte *mac) {
 		lcd.print((mac[i]&0x0F), HEX);
 		if(i==4) lcd.setCursor(0, 1);
 	}
-	if(useEth) {
-		lcd_print_pgm(PSTR(" (Ether MAC)"));
-	} else {
-		lcd_print_pgm(PSTR(" (WiFi MAC)"));
-	}
+	lcd_print_pgm(PSTR(" (WiFi MAC)"));
 }
 
 /** print station bits */
@@ -2568,18 +2473,14 @@ void OpenSprinkler::lcd_print_screen(char c) {
 
 	lcd.setCursor(LCD_CURSOR_NETWORK, 1);
 #if defined(ESP8266) || defined(ESP32)
-	if(useEth) {
-		lcd.write(eth.connected()?ICON_ETHER_CONNECTED:ICON_ETHER_DISCONNECTED);	// todo: need to detect ether status
-	}
-	else
-		lcd.write(WiFi.status()==WL_CONNECTED?ICON_WIFI_CONNECTED:ICON_WIFI_DISCONNECTED);
+	lcd.write(WiFi.status()==WL_CONNECTED?ICON_WIFI_CONNECTED:ICON_WIFI_DISCONNECTED);
 #else
 	lcd.write(status.network_fails>2?ICON_ETHER_DISCONNECTED:ICON_ETHER_CONNECTED);  // if network failure detection is more than 2, display disconnect icon
 #endif
 
 #if defined(ESP8266) || defined(ESP32)
 
-	if(useEth || (get_wifi_mode()==WIFI_MODE_STA && WiFi.status()==WL_CONNECTED && WiFi.localIP())) {
+	if((get_wifi_mode()==WIFI_MODE_STA && WiFi.status()==WL_CONNECTED && WiFi.localIP())) {
 		lcd.setCursor(0, -1);
 		if(status.rain_delayed) {
 			lcd.print(F("<Rain Delay On> "));

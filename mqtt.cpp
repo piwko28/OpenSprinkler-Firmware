@@ -102,7 +102,7 @@ void OSMqtt::init(void) {
 #if defined(ARDUINO)
 	uint8_t mac[6] = {0};
 	#if defined(ESP8266)
-	os.load_hardware_mac(mac, useEth);
+	os.load_hardware_mac(mac);
 	#else
 	os.load_hardware_mac(mac, true);
 	#endif

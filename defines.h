@@ -310,7 +310,6 @@ enum {
 	#define PIN_BOOST         20    // booster pin
 	#define PIN_BOOST_EN      23    // boost voltage enable pin
 
-	#define PIN_ETHER_CS       4    // Ethernet controller chip select pin
 	#define PIN_SENSOR1       11    //
 	#define PIN_SD_CS          0    // SD card chip select pin
 	#define PIN_FLOWSENSOR_INT 1    // flow sensor interrupt pin (INT1)
@@ -341,7 +340,6 @@ enum {
 	#define PIN_FREE_LIST     {} // no free GPIO pin at the moment
 	#define ETHER_BUFFER_SIZE   2048
 
-	#define PIN_ETHER_CS       16 // Ethernet CS (chip select pin) is 16 on OS 3.2 and above
 
 	/* To accommodate different OS30 versions, we use software defines pins */
 	extern byte PIN_BUTTON_1;
@@ -463,7 +461,6 @@ enum {
 	#define V2_PIN_SENSOR1       15 // 14  // sensor 1
 	#define V2_PIN_SENSOR2       14 // 16 // sensor 2
 
-	#define PIN_ETHER_CS         IOEXP_PIN+15 // 255 // ENC28J60 CS (chip select pin) is 16 on OS 3.2.
 	#define PIN_CURR_SENSE       34
 	#define PIN_FREE_LIST        {} // no free GPIO pin at the moment
 	#define ON_BOARD_GPIN_LIST   {255,255,255,255,255,255,255,255} //  ESP32 on board gpins to be usead as sections, 255 - pin not defined

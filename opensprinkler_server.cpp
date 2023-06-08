@@ -44,7 +44,6 @@
     	extern WebServer *update_server;
    		#endif
 		extern OTF::OpenThingsFramework *otf;
-		extern ENC28J60lwIP eth;
 		#define OTF_PARAMS_DEF const OTF::Request &req,OTF::Response &res
 		#define OTF_PARAMS req,res
 		#define FKV_SOURCE req
@@ -1142,7 +1141,7 @@ void server_json_controller_main(OTF_PARAMS_DEF) {
 
 	byte mac[6] = {0};
 #if defined(ARDUINO)
-	os.load_hardware_mac(mac, useEth);
+	os.load_hardware_mac(mac);
 #else
 	os.load_hardware_mac(mac, true);
 #endif
